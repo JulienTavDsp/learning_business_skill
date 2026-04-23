@@ -1,0 +1,6 @@
+[project]
+name = "learning-business-skill"
+version = "0.1.0"
+description = "Transform Markdown source files into structured Learning Paths"
+requires-python = ">=3.11"
+dependencies = []
