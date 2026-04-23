@@ -24,6 +24,17 @@ Two file types are required per workshop session. Both carry timecodes for cross
 
 `{nn}` is a zero-padded session number (`01`, `02`, …). The workshop name slug must match between paired files. At least one file of each type must be provided — see Step 1 for validation.
 
+## Source Priority
+
+Notes files carry **higher weight** than Transcription files at every stage of analysis.
+
+| Priority | File type | Role |
+|----------|-----------|------|
+| **Primary** | Notes (`*_notes.md`) | Authoritative source of truth. Content from Notes takes precedence in all synthesis and conflict resolution. |
+| **Secondary** | Transcription (`*_transcription.md`) | Contextual enrichment only. Used to clarify, expand, or fill gaps in Notes — never to override them. |
+
+**Conflict resolution rule:** When Notes and Transcription content contradict each other on the same topic, the Notes version is always correct. Do not blend or average the two versions — use Notes as-is and discard the contradictory Transcription content.
+
 ## Prerequisites
 
 - **Python ≥ 3.11** — required by the preprocessing script
@@ -113,9 +124,10 @@ Execute this workflow through five distinct steps. Do not skip steps or combine 
 
 **Actions:**
 
-1. Analyze the source material using both file types together:
-   - Use **Notes files** as the primary source of structured content (concepts, architecture, vocabulary, diagrams)
-   - Use **Transcription files** to enrich context: where timecodes align between a Transcription and its paired Notes file, use the spoken dialogue to clarify or expand on the notes
+1. Analyze the source material using both file types together, applying the Source Priority rule:
+   - Use **Notes files** as the authoritative source of structured content (concepts, architecture, vocabulary, diagrams). Notes are always correct.
+   - Use **Transcription files** solely to clarify or expand on the Notes where timecodes align — never to contradict or override Notes content.
+   - When Notes and Transcription content conflict on the same topic, use the Notes version and discard the Transcription version.
    - Cross-reference by matching timecodes across paired files (same `{nn}_{workshop-name}` prefix)
 
 2. Synthesize content across three dimensions:
@@ -211,6 +223,7 @@ uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py a
 
 ## Constraints
 
+- **Source priority**: Notes files are always the primary source of truth. Transcription files provide supplementary context only. When the two conflict, Notes content wins — do not blend or compromise between them.
 - **File types**: Only files matching `*_transcription.md` or `*_notes.md` are valid inputs. Warn the user if other files are provided.
 - **Minimum input**: Do not begin analysis without at least one Transcription file and one Notes file.
 - **Script scope**: Run `clean_base64_images.py` on Notes files only. Never pass Transcription files to the script.
