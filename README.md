@@ -1,2 +1,3 @@
-# learning_business_skill
-Converts unstructured Markdown files (transcripts, technical documents) into structured learning paths and technical summaries tailored to the user’s profile. Cleans up images, generates a SUMMARY.md file, and suggests a personalized curriculum after assessing the user’s skills.
+# Learning Business Skill
+
+Transform unstructured Markdown source files (meeting transcripts, technical documentation) into a structured Learning Path and a synthetic technical summary tailored to the user's professional profile. How to run: invoke this skill then provide one or more .md files when prompted — Base64 images are auto-cleaned before analysis, a SUMMARY.md is written to your project directory, and a tailored curriculum is produced after a short expertise assessment. Use when: learning path, instructional design, summarize transcript, training curriculum, generate summary, expertise assessment, tailored curriculum, technical onboarding, meeting transcript analysis.
