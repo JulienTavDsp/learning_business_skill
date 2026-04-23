@@ -1,21 +1,31 @@
 ---
 name: learning-business-skill
-description: "Transform unstructured Markdown source files (meeting transcripts, technical documentation) into a structured Learning Path and a synthetic technical summary tailored to the user's professional profile. How to run: invoke this skill then provide one or more .md files when prompted — Base64 images are auto-cleaned before analysis, a SUMMARY.md is written to your project directory, and a tailored curriculum is produced after a short expertise assessment. Use when: learning path, instructional design, summarize transcript, training curriculum, generate summary, expertise assessment, tailored curriculum, technical onboarding, meeting transcript analysis."
+description: "Transform unstructured Markdown source files (meeting transcripts, technical documentation) into a structured Learning Path and a synthetic technical summary tailored to the user's professional profile. Use when: learning path, instructional design, summarize transcript, training curriculum, generate summary, expertise assessment, tailored curriculum, technical onboarding, meeting transcript analysis."
 ---
 
-# Learning Business Skill
-
-## Role
-
-You are an expert Instructional Designer and Technical Analyst. Your objective is to transform unstructured Markdown source files—such as meeting transcripts or technical documentation—into a structured Learning Path and a synthetic technical summary tailored to the user's professional profile.
+# Learning Path Generator
 
 ## When to Use
 
-Use this skill when the user wants to:
+As an expert Instructional Designer and Technical Analyst, use this skill when the user wants to:
 - Generate a learning path or training curriculum from source documents
 - Summarize meeting transcripts or technical documentation
 - Assess expertise and tailor instructional content to a professional profile
 - Produce a structured `SUMMARY.md` from unstructured Markdown files
+
+## Prerequisites
+
+- **Python ≥ 3.11** — required by the preprocessing script
+- **uv** (recommended) — simplifies script execution. Install if not present:
+  ```bash
+  # macOS / Linux
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  # or: pip install uv
+  ```
+  If uv is unavailable, run the script directly with Python — no external dependencies are needed:
+  ```bash
+  python <SKILL_DIR>/scripts/clean_base64_images.py [args]
+  ```
 
 ## Workflow
 
@@ -48,15 +58,20 @@ Execute this workflow through five distinct steps. Do not skip steps or combine 
 
 **Actions:**
 
-1. Run `clean_base64_images.py` against every source Markdown file provided in Step 1:
+1. Run `clean_base64_images.py` against all source Markdown files in a single invocation:
    ```bash
-   uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py <file.md> --output <file_cleaned.md>
+   uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py <file1.md> <file2.md> ...
    ```
-   Replace `<SKILL_DIR>` with the absolute path to this skill's directory, and repeat for each source file.
+   Replace `<SKILL_DIR>` with the absolute path to this skill's directory. Each file produces a `<stem>_cleaned.md` sibling in the same directory.
+
+   If uv is unavailable, run directly:
+   ```bash
+   python <SKILL_DIR>/scripts/clean_base64_images.py <file1.md> <file2.md> ...
+   ```
 
 2. Report to the user how many images were replaced per file (the script prints this automatically).
 
-3. Use the cleaned output files (e.g. `<file_cleaned.md>`) as the source material for all subsequent steps. Do NOT use the original files.
+3. Use the cleaned output files as the source material for all subsequent steps. Do NOT use the original files.
 
 4. If no Base64 images are found in any file, notify the user and proceed with the original files unchanged.
 
@@ -73,7 +88,7 @@ Execute this workflow through five distinct steps. Do not skip steps or combine 
    - **Technical** (Systems/Architecture)
    - **Vocabulary** (Glossary of Terms)
 
-2. Ask the user to confirm the target directory for the output file if it is not clear from context. Default to the current working directory.
+2. Ask the user to confirm the target directory for the output file. Default to the current working directory if the user does not specify otherwise.
 
 3. Generate a file named `SUMMARY.md` in the confirmed directory. This file must contain:
    - **Executive Overview**: A high-level summary of the source content.
@@ -81,7 +96,13 @@ Execute this workflow through five distinct steps. Do not skip steps or combine 
    - **Technical Points**: Data flows, software architecture details, and system constraints.
    - **Glossary**: Definitions of industry-specific or project-specific terminology.
 
-4. Notify the user that `SUMMARY.md` has been created and proceed immediately to Step 4.
+4. Notify the user that `SUMMARY.md` has been created.
+
+**⚠️ OPTIONAL STOPPING POINT**: Invite the user to review `SUMMARY.md` before continuing:
+```
+SUMMARY.md has been written to <target_dir>. Review it if you'd like, then
+let me know when to proceed to the expertise assessment (or just say "continue").
+```
 
 ---
 
@@ -146,7 +167,7 @@ uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py a
 
 ---
 
-## Instructions
+## Constraints
 
 - **File creation**: Use the available environment tools to write `SUMMARY.md` to the confirmed target directory.
 - **No emojis**: Use standard Markdown headers and bullet points. Do not use any icons or emojis in responses or generated files.
@@ -156,6 +177,7 @@ uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py a
 ## Stopping Points
 
 - ✋ Step 1: Wait for user to provide source files before any analysis
+- ✋ Step 3: Optional — invite user to review `SUMMARY.md` before proceeding
 - ✋ Step 4: Wait for user expertise responses before generating the learning path
 
 ## Output
