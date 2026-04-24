@@ -8,10 +8,32 @@ description: "Transform unstructured Markdown source files (meeting transcripts,
 ## When to Use
 
 As an expert Instructional Designer and Technical Analyst, use this skill when the user wants to:
-- Generate a learning path or training curriculum from source documents
-- Summarize meeting transcripts or technical documentation
+- Generate a learning path or training curriculum from workshop source files
+- Summarize workshop transcriptions and notes into a structured technical overview
 - Assess expertise and tailor instructional content to a professional profile
-- Produce a structured `SUMMARY.md` from unstructured Markdown files
+- Produce a structured `SUMMARY.md` from a set of Transcription and Notes files
+
+## Input File Types
+
+Two file types are required per workshop session. Both carry timecodes for cross-referencing.
+
+| Type | Naming pattern | Contains images |
+|------|---------------|----------------|
+| Transcription | `{nn}_{workshop-name}_transcription.md` | No |
+| Notes | `{nn}_{workshop-name}_notes.md` | Possibly (Base64) |
+
+`{nn}` is a zero-padded session number (`01`, `02`, …). The workshop name slug must match between paired files. At least one file of each type must be provided — see Step 1 for validation.
+
+## Source Priority
+
+Notes files carry **higher weight** than Transcription files at every stage of analysis.
+
+| Priority | File type | Role |
+|----------|-----------|------|
+| **Primary** | Notes (`*_notes.md`) | Authoritative source of truth. Content from Notes takes precedence in all synthesis and conflict resolution. |
+| **Secondary** | Transcription (`*_transcription.md`) | Contextual enrichment only. Used to clarify, expand, or fill gaps in Notes — never to override them. |
+
+**Conflict resolution rule:** When Notes and Transcription content contradict each other on the same topic, the Notes version is always correct. Do not blend or average the two versions — use Notes as-is and discard the contradictory Transcription content.
 
 ## Prerequisites
 
@@ -35,68 +57,93 @@ Execute this workflow through five distinct steps. Do not skip steps or combine 
 
 ### Step 1: Project Initialization
 
-**Goal:** Identify and retrieve the source material.
+**Goal:** Collect and validate the source files.
 
 **Actions:**
 
 1. Present the following prompt to the user:
    ```
-   Project Initialization: Please provide the Markdown file(s) or specify the
-   directory containing the source material (e.g., meeting transcripts). I will
-   begin by generating a technical summary before tailoring your learning path.
+   Project Initialization: Please provide your workshop files. I expect two types:
+   - Transcription files: {nn}_{workshop-name}_transcription.md
+   - Notes files:         {nn}_{workshop-name}_notes.md
+
+   Provide at least one of each. Multiple session pairs are supported.
    ```
 
-2. Wait for the user to provide the Markdown files or point to their location in the workspace.
+2. Once files are provided, classify each file by its suffix:
+   - Ends with `_transcription.md` → **Transcription**
+   - Ends with `_notes.md` → **Notes**
+   - Otherwise → warn the user that the file does not match the expected naming convention and ask them to confirm whether to include it.
 
-**⚠️ MANDATORY STOPPING POINT**: Do NOT proceed to Step 2 until the user has provided the source files or their location.
+3. Verify the minimum requirement: at least one Transcription file **and** at least one Notes file must be present. If either type is missing, tell the user which type is absent and wait for them to supply it before continuing.
+
+4. Group paired files by their `{nn}_{workshop-name}` prefix and report the detected sessions to the user. Example:
+   ```
+   Detected sessions:
+   - 01_kickoff   → 01_kickoff_transcription.md + 01_kickoff_notes.md
+   - 02_deep-dive → 02_deep-dive_transcription.md (no notes file found)
+   ```
+   If a session is missing its pair, ask the user whether to proceed without it or supply the missing file.
+
+**⚠️ MANDATORY STOPPING POINT**: Do NOT proceed to Step 2 until validation passes (at least one Transcription and one Notes file confirmed).
 
 ---
 
 ### Step 2: Preprocessing — Base64 Image Cleaning
 
-**Goal:** Remove Base64-encoded images from source files to reduce token usage and keep analysis focused on textual content.
+**Goal:** Remove Base64-encoded images from Notes files to reduce token usage and keep analysis focused on textual content.
 
 **Actions:**
 
-1. Run `clean_base64_images.py` against all source Markdown files in a single invocation:
+1. Run `clean_base64_images.py` against **Notes files only** (files classified as `_notes.md` in Step 1) in a single invocation:
    ```bash
-   uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py <file1.md> <file2.md> ...
+   uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py <notes1.md> <notes2.md> ...
    ```
    Replace `<SKILL_DIR>` with the absolute path to this skill's directory. Each file produces a `<stem>_cleaned.md` sibling in the same directory.
 
    If uv is unavailable, run directly:
    ```bash
-   python <SKILL_DIR>/scripts/clean_base64_images.py <file1.md> <file2.md> ...
+   python <SKILL_DIR>/scripts/clean_base64_images.py <notes1.md> <notes2.md> ...
    ```
 
-2. Report to the user how many images were replaced per file (the script prints this automatically).
+   Do **not** pass Transcription files to this script — they contain no images.
 
-3. Use the cleaned output files as the source material for all subsequent steps. Do NOT use the original files.
+2. Report to the user how many images were replaced per Notes file (the script prints this automatically).
 
-4. If no Base64 images are found in any file, notify the user and proceed with the original files unchanged.
+3. For all subsequent steps, use:
+   - The **cleaned Notes files** (`<stem>_cleaned.md`) as the Notes source
+   - The **original Transcription files** unchanged
+
+4. If no Base64 images are found in any Notes file, notify the user and treat the original Notes files as the cleaned source for all subsequent steps.
 
 ---
 
 ### Step 3: Synthetic Summary and File Generation
 
-**Goal:** Create a high-level technical overview and save it to the project.
+**Goal:** Create a high-level technical overview by cross-referencing Transcription and Notes files, then save it to the project.
 
 **Actions:**
 
-1. Analyze the cleaned source content across three dimensions:
+1. Analyze the source material using both file types together, applying the Source Priority rule:
+   - Use **Notes files** as the authoritative source of structured content (concepts, architecture, vocabulary, diagrams). Notes are always correct.
+   - Use **Transcription files** solely to clarify or expand on the Notes where timecodes align — never to contradict or override Notes content.
+   - When Notes and Transcription content conflict on the same topic, use the Notes version and discard the Transcription version.
+   - Cross-reference by matching timecodes across paired files (same `{nn}_{workshop-name}` prefix)
+
+2. Synthesize content across three dimensions:
    - **Conceptual** (Business Logic)
    - **Technical** (Systems/Architecture)
    - **Vocabulary** (Glossary of Terms)
 
-2. Ask the user to confirm the target directory for the output file. Default to the current working directory if the user does not specify otherwise.
+3. Ask the user to confirm the target directory for the output file. Default to the current working directory if the user does not specify otherwise.
 
-3. Generate a file named `SUMMARY.md` in the confirmed directory. This file must contain:
-   - **Executive Overview**: A high-level summary of the source content.
+4. Generate a file named `SUMMARY.md` in the confirmed directory. This file must contain:
+   - **Executive Overview**: A high-level summary of the workshop content.
    - **Conceptual Points**: Key business rules and functional logic.
    - **Technical Points**: Data flows, software architecture details, and system constraints.
    - **Glossary**: Definitions of industry-specific or project-specific terminology.
 
-4. Notify the user that `SUMMARY.md` has been created.
+5. Notify the user that `SUMMARY.md` has been created.
 
 **⚠️ OPTIONAL STOPPING POINT**: Invite the user to review `SUMMARY.md` before continuing:
 ```
@@ -112,9 +159,10 @@ let me know when to proceed to the expertise assessment (or just say "continue")
 
 **Actions:**
 
-1. Ask the user 2-3 specific questions regarding their experience with the subject matter. Examples:
-   - "What is your current understanding of data aggregation in trading?"
-   - "Are you familiar with the specific software architecture mentioned in the documents?"
+1. Ask the user 2-3 questions specific to the workshop subject matter. Derive the questions from the content of the source files — do not use generic or pre-written examples. The questions should probe:
+   - Familiarity with the core domain concepts covered in the workshop
+   - Prior exposure to the tools, systems, or processes discussed
+   - Current role and how it relates to the workshop content
 
 **⚠️ MANDATORY STOPPING POINT**: Do NOT proceed to Step 5 until the user has responded to the expertise questions.
 
@@ -132,6 +180,12 @@ let me know when to proceed to the expertise assessment (or just say "continue")
    - **Detailed Module Breakdown**: For each module, provide key takeaways and Role-Specific Insights (e.g., how the functional logic affects data pipeline design).
    - **Validation**: Three deep-dive questions to test comprehension.
 
+2. Present the completed Learning Path to the user and confirm the workflow is complete:
+   ```
+   Your tailored Learning Path is ready. Let me know if you'd like to adjust
+   the depth, scope, or focus of any module.
+   ```
+
 ---
 
 ## Tools
@@ -140,19 +194,19 @@ let me know when to proceed to the expertise assessment (or just say "continue")
 
 **Description**: Scans Markdown files for inline Base64-encoded images and replaces each one with a human-readable descriptive tag (`[Image description: ...]`) inferred from the image's alt text, the nearest preceding section heading, and the surrounding paragraph. Uses Python stdlib only — no external dependencies.
 
-**Usage:**
+**Usage** (replace `<SKILL_DIR>` with the absolute path to this skill's directory):
 ```bash
-# Single file, write cleaned output alongside source
-uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py file.md
+# Single Notes file, write cleaned output alongside source
+uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py file_notes.md
 
-# Single file, specify output path
-uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py file.md --output cleaned.md
+# Single Notes file, specify output path
+uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py file_notes.md --output cleaned.md
 
-# Overwrite source in place
-uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py file.md --inplace
+# Overwrite Notes source in place
+uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py file_notes.md --inplace
 
-# Multiple files (each gets a _cleaned.md sibling)
-uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py a.md b.md c.md
+# Multiple Notes files (each gets a _cleaned.md sibling)
+uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py a_notes.md b_notes.md c_notes.md
 ```
 
 **Arguments:**
@@ -162,21 +216,26 @@ uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py a
 
 **Output**: Cleaned Markdown file(s) with Base64 images replaced by `[Image description: ...]` tags. Prints a summary of replacements to stdout.
 
-**When to use:** Always run in Step 2, before any analysis or file generation.
-**When NOT to use:** Do not run on already-cleaned files or on non-Markdown files.
+**When to use:** Always run in Step 2 on Notes files only, before any analysis or file generation.
+**When NOT to use:** Do not run on Transcription files, already-cleaned files, or non-Markdown files.
 
 ---
 
 ## Constraints
 
+- **Source priority**: Notes files are always the primary source of truth. Transcription files provide supplementary context only. When the two conflict, Notes content wins — do not blend or compromise between them.
+- **File types**: Only files matching `*_transcription.md` or `*_notes.md` are valid inputs. Warn the user if other files are provided.
+- **Minimum input**: Do not begin analysis without at least one Transcription file and one Notes file.
+- **Script scope**: Run `clean_base64_images.py` on Notes files only. Never pass Transcription files to the script.
+- **Timecode cross-referencing**: When enriching Notes content with Transcription dialogue, match on timecodes within the same session pair (`{nn}_{workshop-name}`). Do not cross sessions.
 - **File creation**: Use the available environment tools to write `SUMMARY.md` to the confirmed target directory.
 - **No emojis**: Use standard Markdown headers and bullet points. Do not use any icons or emojis in responses or generated files.
 - **Noise filtering**: When processing transcripts, ignore filler words and administrative digressions to focus strictly on functional and technical value.
-- **Use cleaned content**: All analysis (SUMMARY.md, Learning Path) must be based on the preprocessed files produced in Step 2, not the originals.
+- **Use cleaned content**: All analysis (SUMMARY.md, Learning Path) must be based on the cleaned Notes files (or original Notes files if no images were found) and the original Transcription files.
 
 ## Stopping Points
 
-- ✋ Step 1: Wait for user to provide source files before any analysis
+- ✋ Step 1: Wait for valid source files (at least one Transcription + one Notes) before any analysis
 - ✋ Step 3: Optional — invite user to review `SUMMARY.md` before proceeding
 - ✋ Step 4: Wait for user expertise responses before generating the learning path
 
