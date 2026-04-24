@@ -1,13 +1,17 @@
 ---
 name: learning-business-skill
-description: "Transform unstructured Markdown source files (meeting transcripts, technical documentation) into a structured Learning Path and a synthetic technical summary tailored to the user's professional profile. Use when: learning path, instructional design, summarize transcript, training curriculum, generate summary, expertise assessment, tailored curriculum, technical onboarding, meeting transcript analysis."
+description: "Transform unstructured Markdown source files (meeting transcripts, technical documentation) into a structured Learning Path and a synthetic technical summary tailored to the user's professional profile. Use when: learning path, instructional design, summarize transcript, training curriculum, generate workshop summary, expertise assessment, tailored curriculum, technical onboarding, meeting transcript analysis."
 ---
 
 # Learning Path Generator
 
+## Persona
+
+Act as an expert Instructional Designer and Technical Analyst throughout this workflow.
+
 ## When to Use
 
-As an expert Instructional Designer and Technical Analyst, use this skill when the user wants to:
+Use this skill when the user wants to:
 - Generate a learning path or training curriculum from workshop source files
 - Summarize workshop transcriptions and notes into a structured technical overview
 - Assess expertise and tailor instructional content to a professional profile
@@ -106,7 +110,7 @@ Execute this workflow through five distinct steps. Do not skip steps or combine 
    python <SKILL_DIR>/scripts/clean_base64_images.py <notes1.md> <notes2.md> ...
    ```
 
-   Do **not** pass Transcription files to this script — they contain no images.
+   Use **absolute paths** for all Notes file arguments. Do **not** pass Transcription files to this script — they contain no images.
 
 2. Report to the user how many images were replaced per Notes file (the script prints this automatically).
 
@@ -124,11 +128,7 @@ Execute this workflow through five distinct steps. Do not skip steps or combine 
 
 **Actions:**
 
-1. Analyze the source material using both file types together, applying the Source Priority rule:
-   - Use **Notes files** as the authoritative source of structured content (concepts, architecture, vocabulary, diagrams). Notes are always correct.
-   - Use **Transcription files** solely to clarify or expand on the Notes where timecodes align — never to contradict or override Notes content.
-   - When Notes and Transcription content conflict on the same topic, use the Notes version and discard the Transcription version.
-   - Cross-reference by matching timecodes across paired files (same `{nn}_{workshop-name}` prefix)
+1. Analyze the source material using both file types together, applying the Source Priority rule (see **Source Priority** section). Cross-reference by matching timecodes across paired files (same `{nn}_{workshop-name}` prefix).
 
 2. Synthesize content across three dimensions:
    - **Conceptual** (Business Logic)
@@ -141,9 +141,28 @@ Execute this workflow through five distinct steps. Do not skip steps or combine 
    - **Executive Overview**: A high-level summary of the workshop content.
    - **Conceptual Points**: Key business rules and functional logic.
    - **Technical Points**: Data flows, software architecture details, and system constraints.
-   - **Glossary**: Definitions of industry-specific or project-specific terminology.
+   - **Glossary**: A structured table of business-specific terms extracted from the source material. Apply the following rules:
+     - **Include**: business concepts, entities, KPIs, business roles, and named processes found in the workshop.
+     - **Exclude**: technical and tool jargon (`SQL`, `API`, `ETL`, `pipeline`, `table`, `JOIN`, and similar).
+     - Each row must contain four fields:
+       - **Term**: the exact term as it appears in the source files.
+       - **Definition**: 1–2 sentences extracted or closely paraphrased from the source. Do not invent a definition — if the term is used without being defined in the source, write `TODO: to be defined with the business team`.
+       - **Example**: one concrete, specific example drawn directly from the workshop content — a real entity, value, scenario, or use case explicitly mentioned in the files. Do not fabricate examples.
+       - **Source**: the filename of the Notes or Transcription file where the term was identified.
+     - Format as a Markdown table:
+       ```
+       | Term | Definition | Example | Source |
+       |------|------------|---------|--------|
+       ```
 
 5. Notify the user that `SUMMARY.md` has been created.
+
+   The file must use this heading structure:
+   - `# Workshop Summary — {workshop-name}`
+   - `## Executive Overview`
+   - `## Conceptual Points`
+   - `## Technical Points`
+   - `## Glossary` (table as specified above)
 
 **⚠️ OPTIONAL STOPPING POINT**: Invite the user to review `SUMMARY.md` before continuing:
 ```
@@ -176,7 +195,11 @@ let me know when to proceed to the expertise assessment (or just say "continue")
 
 1. Synthesize the cleaned source material and the user's expertise level to create a Learning Path with the following structure:
    - **Introduction**: Alignment of the path with the user's role (e.g., Data Engineer).
-   - **Curriculum Table**: Columns for Module Number, Title, Objectives, and Estimated Duration.
+   - **Curriculum Table**: Columns for Module Number, Title, Objectives, and Estimated Duration. Example row:
+
+     | # | Title | Objectives | Duration |
+     |---|-------|------------|----------|
+     | 1 | Introduction to [Core Concept] | Understand the business context and key actors involved | 30 min |
    - **Detailed Module Breakdown**: For each module, provide key takeaways and Role-Specific Insights (e.g., how the functional logic affects data pipeline design).
    - **Validation**: Three deep-dive questions to test comprehension.
 
@@ -223,7 +246,7 @@ uv run --project <SKILL_DIR> python <SKILL_DIR>/scripts/clean_base64_images.py a
 
 ## Constraints
 
-- **Source priority**: Notes files are always the primary source of truth. Transcription files provide supplementary context only. When the two conflict, Notes content wins — do not blend or compromise between them.
+- **Source priority**: Apply the Source Priority rule (see **Source Priority** section).
 - **File types**: Only files matching `*_transcription.md` or `*_notes.md` are valid inputs. Warn the user if other files are provided.
 - **Minimum input**: Do not begin analysis without at least one Transcription file and one Notes file.
 - **Script scope**: Run `clean_base64_images.py` on Notes files only. Never pass Transcription files to the script.
